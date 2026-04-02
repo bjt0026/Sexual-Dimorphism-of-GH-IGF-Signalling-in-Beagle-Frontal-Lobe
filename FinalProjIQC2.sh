@@ -1,1 +1,149 @@
+#!/bin/bash
 
+######### FunGen Course Instructions ############
+## Purpose: The purpose of this script is to
+##      learn to make scratch directory
+##      learn to define variables
+##      download data from NCBI SRA using the SRAtoolkit and the SRA run IDs: https://www.ncbi.nlm.nih.gov/sra/docs/sradownload/
+##      use FASTQC to evaluate the quality of the data: https://www.bioinformatics.babraham.ac.uk/projects/fastqc/
+## Download from SRA: Input Data: NA
+##                      Output: Downloaded read files, R1 and R2 files for each sample if paired-end data (FASTQ)
+## FASTQC       InPut: Downloade SRA files .fastq
+##              Output: is a folder for each file that contains a .html file to visualize the quality, and .txt files of quality statistics.
+##                      The last line of this script will make a tarball of the output directory to bring back to your computer
+##      After you have this script in your home directory and you have made it executable using  "chmod +x [script name]",
+##      then run the script by using "run_script [script name]"
+##      suggested paramenters are below to submit this script.
+##              queue: class
+##              core: 1
+##              time limit (HH:MM:SS): 04:00:00
+##              Memory: 4gb
+##              run on asax
+###############################################
+
+
+########## Load Modules
+source /apps/profiles/modules_asax.sh.dyn
+module load sra
+module load fastqc/0.10.1
+
+##########  Define variables and make directories
+## Replace the numbers in the brackets with Your specific information
+  ## make variable for your ASC ID so the directories are automatically made in YOUR directory
+  ## These are represented in the code by [#] replace these according to the examples provided
+MyID=aubclsf0051          ## Example: MyID=aubrmg001
+
+  ## Make variable that represent YOUR working directory(WD) in scratch, your Raw data directory (DD) and the pre or postcleaned status (CS).
+DD=/scratch/${MyID}/FinalProj/RawData                           ## Example: DD=/scratch/${MyID}/PracticeRNAseq/RawData
+WD=/scratch/${MyID}/FinalProj                           ## Example: WD=/scratch/${MyID}/PracticeRNAseq
+RDQ=RawDataQuality
+##  make the directories in SCRATCH for holding the raw data
+## -p tells it to make any upper level directories that are not there. Notice how this will also make the WD.
+mkdir -p ${DD}
+## move to the Data Directory
+cd ${DD}
+
+##########  Download data files from NCBI: SRA using the Run IDs
+  ### from SRA use the SRA tool kit - see NCBI website https://www.ncbi.nlm.nih.gov/sra/docs/sradownload/
+        ## this downloads the SRA file and converts to fastq
+        ## -F   Defline contains only original sequence name.
+        ## -I   Append read id after spot id as 'accession.spot.readid' on defline.
+        ## splits the files into R1 and R2 (forward reads, reverse reads)
+
+## These samples are from Bioproject PRJNA437447. An experiment on Daphnia pulex, 5 samples on ad lib feed, 5 samples on caloric restriction diet
+## https://www.ncbi.nlm.nih.gov/bioproject?LinkName=sra_bioproject&from_uid=5206312
+## For class only do the 6 that you are assigned, delete the other 4 from this list
+
+## We must run vdb-config to force creation of the default config file, otherwise we will get an error. This is a 'hack'.
+
+vdb-config --interactive > /dev/null 2>&1 <<EOF
+q
+EOF
+
+#fastq for male beagles
+fastq-dump -F --split-files SRR22456748
+fastq-dump -F --split-files SRR22456749
+fastq-dump -F --split-files SRR22456750
+fastq-dump -F --split-files SRR22456751
+fastq-dump -F --split-files SRR22456752
+fastq-dump -F --split-files SRR22456753
+fastq-dump -F --split-files SRR22456754
+fastq-dump -F --split-files SRR22456755
+fastq-dump -F --split-files SRR22456756
+fastq-dump -F --split-files SRR22456757
+fastq-dump -F --split-files SRR22456758
+fastq-dump -F --split-files SRR22456759
+#fastq for female beagles
+fastq-dump -F --split-files SRR22457823
+fastq-dump -F --split-files SRR22457824
+fastq-dump -F --split-files SRR22457825
+fastq-dump -F --split-files SRR22457826
+fastq-dump -F --split-files SRR22457827
+fastq-dump -F --split-files SRR22457828
+fastq-dump -F --split-files SRR22457829
+fastq-dump -F --split-files SRR22457830
+fastq-dump -F --split-files SRR22457831
+fastq-dump -F --split-files SRR22457832
+fastq-dump -F --split-files SRR22457833
+fastq-dump -F --split-files SRR22457834
+
+##### Extra ####
+## If you are downloading data from a sequencing company instead of NCBI, using wget for example, then calculate the md5sum values of all the files in the folder (./*), and read into a text file.
+## then you can compare the values in this file with the ones provided by the company.
+#md5sum ./* > md5sum.txt
+
+##### Extra ####
+## If you data comes with multiple R1 and R2 files per individual. You can contatenate them together using "cat" before running FASTQC
+## see examples below for one file. You will probably want to use a loop to process through all the files.
+Male1=($(awk -F "," 'if ($5 == SAMN31934759) {print $1}' BeagleSamples.csv))
+Male2=($(awk -F "," 'if ($5 == SAMN31934760) {print $1}' BeagleSamples.csv))
+Male3=($(awk -F "," 'if ($5 == SAMN31934761) {print $1}' BeagleSamples.csv))
+
+Female1=($(awk -F "," 'if ($5 == SAMN31934616) {print $1}' BeagleSamples.csv))
+Female2=($(awk -F "," 'if ($5 == SAMN31934617) {print $1}' BeagleSamples.csv))
+Female3=($(awk -F "," 'if ($5 == SAMN31934618) {print $1}' BeagleSamples.csv))
+
+for SRR in "${Male1[@]}"; do
+        cat ${SRR}*_1*.fastq >> SAMN31934759_R1.fastq
+        cat ${SRR}*_2*.fastq >> SAMN31934759_R2.fastq
+done
+
+for SRR in "${Male2[@]}"; do
+        cat ${SRR}*_1*.fastq >> SAMN31934760_R1.fastq
+        cat ${SRR}*_2*.fastq >> SAMN31934760_R2.fastq
+done
+
+for SRR in "${Male3[@]}"; do
+        cat ${SRR}*_1*.fastq >> SAMN31934761_R1.fastq
+        cat ${SRR}*_2*.fastq >> SAMN31934761_R2.fastq
+done
+
+for SRR in "${Female1[@]}"; do
+        cat ${SRR}*_1*.fastq >> SAMN31934616_R1.fastq
+        cat ${SRR}*_2*.fastq >> SAMN31934616_R2.fastq
+done
+
+for SRR in "${Female2[@]}"; do
+        cat ${SRR}*_1*.fastq >> SAMN31934617_R1.fastq
+        cat ${SRR}*_2*.fastq >> SAMN31934617_R2.fastq
+done
+
+for SRR in "${Female3[@]}"; do
+        cat ${SRR}*_1*.fastq >> SAMN31934618_R1.fastq
+        cat ${SRR}*_2*.fastq >> SAMN31934618_R2.fastq
+done
+############## FASTQC to assess quality of the sequence data
+## FastQC: run on each of the data files that have 'All' to check the quality of the data
+## The output from this analysis is a folder of results and a zipped file of results and a .html file for each sample
+## Note, if the parent directory already exists using -p will result in an error.
+
+mkdir ${WD}/${RDQ}
+fastqc *.fastq --outdir=${WD}/${RDQ}
+
+#######  Tarball the directory containing the FASTQC results so we can easily bring it back to our computer to evaluate.
+cd ${WD}/${RDQ}
+tar cvzf ${RDQ}.tar.gz  ${WD}/${RDQ}/*
+## when finished use scp or rsync to bring the tarballed  results file to your computer and open the .html file to evaluate the quality of your raw data.
+
+mv ${DD}/SAMN* /home/${MyID}/FinalProject
+mv ${RDQ}.tar.gz /home/${MyID}/FinalProject
