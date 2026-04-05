@@ -51,7 +51,7 @@ deg <- deg[order(deg$padj), ]
 cat("Number of DEGs (padj < 0.05):", nrow(deg), "\n")
 
 ### 3. Manual broad functional category gene sets ---------------------
-### These lists are the literature-informed seed lists and can be edited.
+### These are the literature-informed seed lists and can be edited.
 
 # synaptic / neuronal signalling
 synaptic_genes <- c(
@@ -92,7 +92,7 @@ hormonal_genes <- c(
   "GNRHR","KISS1R","LHCGR","FSHR"
 )
 
-# structural / cytoskeleton / adhesion / ECM
+# structural / cytoskeleton 
 structural_genes <- c(
   "ACTB","ACTG1","TUBA1A","TUBA1B","TUBB","TUBB2A","TUBB2B","TUBB3",
   "MAP1A","MAP1B","MAP2","NEFL","NEFM","NEFH","VCL","PXN","TLN1","DST",
@@ -102,8 +102,7 @@ structural_genes <- c(
 )
 
 ### 4. Assign each DEG to one main category ---------------------------
-### Priority order matters; later assignments overwrite earlier ones.
-### Put "hormonal/signalling" before "other", etc.
+### NOTE : Priority order matters; later assignments overwrite earlier ones.
 
 deg$category <- "other/unclassified"
 
