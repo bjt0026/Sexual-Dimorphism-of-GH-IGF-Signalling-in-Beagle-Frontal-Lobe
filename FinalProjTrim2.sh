@@ -43,6 +43,7 @@ MyID=aubclsf0051                        ## Example: MyID=aubrmg001
 WD=/scratch/${MyID}/FinalProj                          ## Example: WD=/scratch/$MyID/PracticeRNAseq
 DD=/scratch/${MyID}/FinalProj/RawData                          ## Example: DD=/scratch/$MyID/PracticeRNAseq/RawData
 CD=/scratch/${MyID}/FinalProj/CleanData                       ## Example: CD=/scratch/$MyID/PracticeRNAseq/CleanData
+RDQ=/scratch/aubclsf0051/FinalProj/RawDataQuality
 PCQ=PostCleanQuality
 adapters=AdaptersToTrim_All.fa  ## This is a fasta file that has a list of adapters commonly used in NGS sequencing. 
 				## In the future, for your data, you will likely need to edit this for other projects based on how your libraries 
@@ -114,6 +115,9 @@ ls -lh SAMN*_R1.fastq SAMN*_R2.fastq
 ## Move SRR files out of RawData into SRRdirectory
 mv ${DD}/SRR*.fastq ${SRRD}/
 
+## Fastqc on SAMN concatenated files
+fastqc *.fastq --outdir=${RDQ}
+
 ################ Trimmomatic ###################################
 ## Move to Raw Data Directory
 cd ${DD}
@@ -175,8 +179,9 @@ echo "QC files:" $(ls ${WD}/${PCQ} | wc -l)
 
 #######  Tarball the directory containing the FASTQC results so we can easily bring it back to our computer to evaluate.
 tar cvzf ${PCQ}.tar.gz ${PCQ}
+tar -cvzf RawDataQuality.tar.gz ${RDQ}
 
 ## when finished use scp or rsync to bring the .gz file to your computer and open the .html file to evaluate the quality of the data.
-
 cp ${DD}/SAMN* /home/${MyID}/FinalProject
 cp ${PCQ}.tar.gz /home/${MyID}/FinalProject
+cp -r ${RDQ}.tar.gz /home/${MyID}/FinalProject
