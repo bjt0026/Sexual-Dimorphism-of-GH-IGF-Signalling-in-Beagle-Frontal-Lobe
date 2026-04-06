@@ -95,43 +95,7 @@ fastq-dump -F --split-files SRR22457834
 ##### Extra ####
 ## If you data comes with multiple R1 and R2 files per individual. You can contatenate them together using "cat" before running FASTQC
 ## see examples below for one file. You will probably want to use a loop to process through all the files.
-Male1=($(awk -F "," 'if ($5 == SAMN31934759) {print $1}' BeagleSamples.csv))
-Male2=($(awk -F "," 'if ($5 == SAMN31934760) {print $1}' BeagleSamples.csv))
-Male3=($(awk -F "," 'if ($5 == SAMN31934761) {print $1}' BeagleSamples.csv))
 
-Female1=($(awk -F "," 'if ($5 == SAMN31934616) {print $1}' BeagleSamples.csv))
-Female2=($(awk -F "," 'if ($5 == SAMN31934617) {print $1}' BeagleSamples.csv))
-Female3=($(awk -F "," 'if ($5 == SAMN31934618) {print $1}' BeagleSamples.csv))
-
-for SRR in "${Male1[@]}"; do
-        cat ${SRR}*_1*.fastq >> SAMN31934759_R1.fastq
-        cat ${SRR}*_2*.fastq >> SAMN31934759_R2.fastq
-done
-
-for SRR in "${Male2[@]}"; do
-        cat ${SRR}*_1*.fastq >> SAMN31934760_R1.fastq
-        cat ${SRR}*_2*.fastq >> SAMN31934760_R2.fastq
-done
-
-for SRR in "${Male3[@]}"; do
-        cat ${SRR}*_1*.fastq >> SAMN31934761_R1.fastq
-        cat ${SRR}*_2*.fastq >> SAMN31934761_R2.fastq
-done
-
-for SRR in "${Female1[@]}"; do
-        cat ${SRR}*_1*.fastq >> SAMN31934616_R1.fastq
-        cat ${SRR}*_2*.fastq >> SAMN31934616_R2.fastq
-done
-
-for SRR in "${Female2[@]}"; do
-        cat ${SRR}*_1*.fastq >> SAMN31934617_R1.fastq
-        cat ${SRR}*_2*.fastq >> SAMN31934617_R2.fastq
-done
-
-for SRR in "${Female3[@]}"; do
-        cat ${SRR}*_1*.fastq >> SAMN31934618_R1.fastq
-        cat ${SRR}*_2*.fastq >> SAMN31934618_R2.fastq
-done
 ############## FASTQC to assess quality of the sequence data
 ## FastQC: run on each of the data files that have 'All' to check the quality of the data
 ## The output from this analysis is a folder of results and a zipped file of results and a .html file for each sample
@@ -141,9 +105,9 @@ mkdir ${WD}/${RDQ}
 fastqc *.fastq --outdir=${WD}/${RDQ}
 
 #######  Tarball the directory containing the FASTQC results so we can easily bring it back to our computer to evaluate.
-cd ${WD}/${RDQ}
-tar cvzf ${RDQ}.tar.gz  ${WD}/${RDQ}/*
+#cd ${WD}/${RDQ}
+#tar cvzf ${RDQ}.tar.gz  ${WD}/${RDQ}/*
 ## when finished use scp or rsync to bring the tarballed  results file to your computer and open the .html file to evaluate the quality of your raw data.
 
 mv ${DD}/SAMN* /home/${MyID}/FinalProject
-mv ${RDQ}.tar.gz /home/${MyID}/FinalProject
+#mv ${RDQ}.tar.gz /home/${MyID}/FinalProject
