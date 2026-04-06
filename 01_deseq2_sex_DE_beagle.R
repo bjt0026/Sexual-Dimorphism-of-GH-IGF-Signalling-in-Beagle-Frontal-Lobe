@@ -5,7 +5,7 @@
 # Output: DESeq2 results tables + GH/IGF figures (600 DPI PNG)
 # This script:
 #   1) runs DESeq2 (male vs female),
-#   2) generates QC plots (sample distance heatmap, MA plot),
+#   2) generates QC plots (sample distance heatmap, MA plot, PCA plot),
 #   3) extracts GH/IGF pathway genes,
 #   4) produces hypothesis-driven heatmaps and boxplots,
 #   5) writes a ranked .rnk file and normalized expression table
