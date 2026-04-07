@@ -153,16 +153,7 @@ pheatmap(
 # GH–IGF / insulin / downstream signalling gene set
 # Based on canonical GH–IGF and JAK–STAT / PI3K–AKT–mTOR / MAPK pathway
 # schematics and reviews, for example:
-# - GH–IGF axis and receptor signalling:
-#   Le Roith & Yakar, Endocrinology 2007 (IGF system overview)
-#   Waters & Brooks, Horm Metab Res 2015 (GH receptor signalling)
-# - JAK–STAT and SOCS negative feedback:
-#   Starr & Hilton, Biochim Biophys Acta 1999 (JAK–STAT and SOCS proteins)
-# - PI3K–AKT–mTOR and FOXO:
-#   Manning & Cantley, Cell 2007 (AKT/PKB signalling)
-#   Brunet et al., Genes Dev 2001 (FOXO transcription factors)
-# - RAS–RAF–MEK–ERK MAPK cascade:
-#   Wellbrock et al., Nat Rev Mol Cell Biol 2004 (RAF and ERK signalling)
+# Le, T. K. C., Dao, X. D., Nguyen, D. V., Luu, D. H., Bui, T. M. H., Le, T. H., Nguyen, H. T., Le, T. N., Hosaka, T., & Nguyen, T. T. T. (2023). Insulin signaling and its application. Frontiers in endocrinology, 14, 1226655. https://doi.org/10.3389/fendo.2023.1226655
 
 gh_symbols <- c(
   "GH1","GH2","GHR","GHRHR","GHRH",
