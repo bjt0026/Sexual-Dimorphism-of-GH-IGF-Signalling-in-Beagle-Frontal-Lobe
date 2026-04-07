@@ -11,10 +11,23 @@
 #   category using curated gene lists and visualizes counts per category.
 ### Categories:
 ###   1) synaptic/neuronal
+###      - Supported by synaptic marker studies on SNAP-25 and related synaptic proteins
+###        (PMID: 16870728, 27047369)
 ###   2) metabolic/mitochondrial
+###      - Supported by mitochondrial oxidative phosphorylation and respiratory chain studies
+###        involving complex I subunits and ATP synthase
+###        (e.g., NDUFS/NDUST and ATP5F1A-related dysfunction; PMID: 581247, 12265762)
 ###   3) immune/inflammatory & glial
+###      - Supported by astrocyte marker and microglia/neuroinflammation literature
+###        (GFAP/S100B/AQP4 astrocyte markers; TREM2–DAP12, CX3CL1–CX3CR1 and CSF1R axes in microglia)
+###        (PMID: 30882938, 40034567, 29361745, 8634759)
 ###   4) hormonal/signaling (incl. GH–IGF)
-###   5) other/structural
+###      - Supported by GH–IGF and insulin signaling cross-talk through JAK–STAT and PI3K–AKT–mTOR pathways
+###        (PMID: 22046334, 23607911)
+###   5) Structural
+###        - Supported by structural markers in neurobiology (actins, tubulins, intermediate filaments,
+###        adhesion and ECM molecules such as NCAM1/L1CAM, collagens, laminins, tenascins)
+###        (PMID: 35976403, 2633433, 36507150)
 
 ### =========================================================
 
