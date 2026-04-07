@@ -15,18 +15,7 @@
 ###   3) immune/inflammatory & glial
 ###   4) hormonal/signaling (incl. GH–IGF)
 ###   5) other/structural
-### Uses DEG list: padj < 0.05 from 'res'
-# Gene lists were assembled from different resources, for example: 
-#   Synaptic / neuronal markers:
-#     - PMID: 23926251 (Synaptic protein and pan-neuronal gene expression)[web:313]
-#     - PMID: 32764601 (Fluid biomarkers for synaptic dysfunction)[web:310]
-#   Mitochondrial / metabolic markers:
-#     - PMID: 33194911 (Role of mitochondria in brain functions and disorders)[web:314]
-#   Immune / neuroinflammatory & glial markers:
-#     - PMID: 34040175 (Neuroinflammation overview: reactive microglia & astrocytes)[web:321]
-#     - PMID: 32351480 (Precision medicine for neuroinflammatory diseases)[web:323]
-#   General neuronal / cell‑type marker references:
-#     - PMID: 23319644 (Cell type‑specific genes in mouse brain)[web:319]
+
 ### =========================================================
 
 library(ggplot2)
