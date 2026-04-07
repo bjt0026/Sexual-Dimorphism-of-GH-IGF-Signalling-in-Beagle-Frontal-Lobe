@@ -197,9 +197,11 @@ write.csv(gh_res,
 
 ### Exploratory GH/IGF subsets ---------------
 # FDR cutoffs for GH/IGF hypothesis set.
+g050 <- subset(gh_res, !is.na(padj) & padj < 0.05)
 gh10 <- subset(gh_res, !is.na(padj) & padj < 0.10)
 gh20 <- subset(gh_res, !is.na(padj) & padj < 0.20)
 
+write.csv(gh10, file = "GH_IGF_genes_FDR0.05.csv", row.names = FALSE)
 write.csv(gh10, file = "GH_IGF_genes_FDR0.10.csv", row.names = FALSE)
 write.csv(gh20, file = "GH_IGF_genes_FDR0.20.csv", row.names = FALSE)
 
@@ -237,12 +239,44 @@ dev.off()
 
 ### =========================================================
 ### Hypothesis-targeted FIGURES
-### Fig2A: GH/IGF FDR < 0.20
-### Fig2B: GH/IGF FDR < 0.10 
-### Fig3: Key GH/IGF genes (boxplots)
+###Fig 1: MA, PCA, sample-to-sample distances
+### Fig2: Key GH/IGF genes (boxplots)
+### Fig3A: GH/IGF FDR < 0.05
+### Fig3B: GH/IGF FDR < 0.20
 ### =========================================================
 
-## Fig2A ---------------------
+## Fig3 ---------------------
+# Heatmap of GH/IGF genes with FDR < 0.05 (most stringent set).
+
+gh05 <- subset(gh_res, !is.na(padj) & padj < 0.05)
+gh05_ids <- gh05$gene_id[gh05$gene_id %in% rownames(vsd)]
+
+if (length(gh05_ids) > 1) {
+  mat_gh05 <- assay(vsd)[gh05_ids, , drop = FALSE]
+  mat_gh05 <- mat_gh05 - rowMeans(mat_gh05)
+  row_syms05 <- gh05$symbol[match(gh05_ids, gh05$gene_id)]
+  rownames(mat_gh05) <- make.unique(row_syms05)
+  
+  anno_col4 <- as.data.frame(colData(dds)[, "sex", drop = FALSE])
+  sex_cols <- list(sex = c("female" = "salmon", "male" = "steelblue"))
+  
+  png("Fig1_GH_IGF_FDR0.05_heatmap.png",
+      width = 7, height = 4.5, units = "in", res = 600)
+  pheatmap(
+    mat_gh05,
+    annotation_col    = anno_col4,
+    annotation_colors = sex_cols,
+    show_rownames     = TRUE,
+    show_colnames     = TRUE,
+    fontsize_row      = 8,
+    main              = " "
+  )
+  dev.off()
+} else {
+  message("No GH/IGF genes with padj < 0.05.")
+}
+
+## Fig3B ---------------------
 # Heatmap of GH/IGF genes with FDR < 0.20 (exploratory set).
 
 gh20_ids <- gh20$gene_id[gh20$gene_id %in% rownames(vsd)]
@@ -271,8 +305,9 @@ if (length(gh20_ids) > 1) {
   dev.off()
 }
 
-## Fig2B ---------------------
-# Heatmap of GH/IGF genes with FDR < 0.10 (stringent set).
+## ---------------------
+# Heatmap of GH/IGF genes with FDR < 0.10 (middle-set).
+####JUST FOR FUN!####
 
 gh10_ids <- gh10$gene_id[gh10$gene_id %in% rownames(vsd)]
 
@@ -300,7 +335,8 @@ if (length(gh10_ids) > 1) {
   dev.off()
 }
 
-## Fig3: Box/strip plots for key GH/IGF genes ----
+
+## Fig2: Box/strip plots for key GH/IGF genes ----
 # Normalized-count boxplots for selected GH/IGF genes (per sex).
 
 key_genes2 <- c("FOS", "IGF1", "IGF2", "GHR", "IGF1R", "STAT5B", "SOCS2")
