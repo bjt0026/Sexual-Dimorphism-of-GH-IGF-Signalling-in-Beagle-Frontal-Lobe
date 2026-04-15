@@ -448,3 +448,33 @@ write.table(as.data.frame(NormTransExp_Anno_withName),
             quote = FALSE,
             row.names = FALSE,
             sep = "\t")
+
+### Manuscript-ready DEG summary table ------------------------
+
+# Helper to count up- and down-regulated genes at a given padj cutoff
+deg_summary_fun <- function(res_obj, padj_cutoff) {
+  sig <- res_obj[which(!is.na(res_obj$padj) & res_obj$padj < padj_cutoff), ]
+  up   <- sum(sig$log2FoldChange > 0, na.rm = TRUE)
+  down <- sum(sig$log2FoldChange < 0, na.rm = TRUE)
+  data.frame(
+    padj_threshold       = padj_cutoff,
+    n_significant_genes  = nrow(sig),
+    n_upregulated_genes  = up,
+    n_downregulated_genes = down
+  )
+}
+
+# Build summary for padj values
+deg_summary_01 <- deg_summary_fun(res, 0.10)
+deg_summary_005 <- deg_summary_fun(res, 0.05)
+deg_summary_020 <- deg_summary_fun(res, 0.20)
+
+manuscript_ready_deg_table <- rbind(deg_summary_01, deg_summary_005, deg_summary_020)
+row.names(manuscript_ready_deg_table) <- NULL
+
+manuscript_ready_deg_table
+write.csv(
+  manuscript_ready_deg_table,
+  file = "ManuscriptReady_DEG_summary_padj.csv",
+  row.names = FALSE
+)
