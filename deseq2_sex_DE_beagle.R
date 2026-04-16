@@ -2,7 +2,7 @@
 # Course: Functional Genomics (BIOL 6850)
 # Author: Beverly Thomas
 # Input: gene_count_matrix.csv (gene-level output)
-# Output: DESeq2 results tables + GH/IGF figures (600 DPI PNG)
+# Output: DESeq2 results tables + QC Figures + GH/IGF figures (600 DPI PNG)
 # This script:
 #   1) runs DESeq2 (male vs female),
 #   2) generates QC plots (sample distance heatmap, MA plot, PCA plot),
@@ -82,7 +82,12 @@ res
 
 ### Order results by adjusted p-value
 resOrdered <- res[order(res$padj), ]
-resOrdered
+
+# Drop mitochondrial rna-NC_* features from the ordered results
+is_mito_rna <- grepl("^rna-NC_", rownames(resOrdered))
+cat("Number of rna-NC_ features removed:", sum(is_mito_rna), "\n")
+
+resOrdered <- resOrdered[!is_mito_rna, ]
 
 ### DEG tallies at different stringency levels
 deg_05 <- res[ which(res$padj < 0.05), ]
@@ -93,11 +98,11 @@ cat("DEGs at FDR 0.05 (padj < 0.05):", nrow(deg_05), "\n")
 cat("DEGs at FDR 0.10 (padj < 0.10):", nrow(deg_10), "\n")
 cat("DEGs at FDR 0.20 (padj < 0.20):", nrow(deg_20), "\n")
 
-# Exploratory subset: nominal p < 0.05 AND |log2FC| >= 1.
+# Nominal p < 0.05 AND |log2FC| >= 1.
 cand_p05_lfc1 <- res[ which(res$pvalue < 0.05 &
                               !is.na(res$pvalue) &
                               abs(res$log2FoldChange) >= 1), ]
-cat("Genes with p < 0.05 and |log2FC| >= 1 (exploratory):",
+cat("Genes with p < 0.05 and |log2FC| >= 1:",
     nrow(cand_p05_lfc1), "\n")
 
 ### MA-plot (on screen only)
@@ -118,43 +123,70 @@ write.csv(as.data.frame(resOrdered),
 rld <- rlog(dds)
 vsd <- varianceStabilizingTransformation(dds, blind = TRUE)
 
-### Optional overview heatmaps (top DE, top variable) ----
-# Top 20 DE genes by FDR.
+### Optional GENERAL DGE overview heatmaps (top DE, top variable) ----
+
+
+# Top 20 DE genes by FDR
 top20_ids <- rownames(resOrdered)[which(!is.na(resOrdered$padj))[1:20]]
 mat_top20 <- assay(vsd)[top20_ids, ]
-# Center each gene across samples.
 mat_top20 <- mat_top20 - rowMeans(mat_top20)
-anno_col <- as.data.frame(colData(dds)[, "sex", drop = FALSE])
 
+row_syms_top20 <- sub(".*\\|", "", top20_ids)
+rownames(mat_top20) <- make.unique(row_syms_top20)
+
+anno_sex <- as.data.frame(colData(dds)[, "sex", drop = FALSE])
+sex_cols <- list(sex = c("female" = "salmon", "male" = "steelblue"))
+
+png("Fig_QC_Top20_DE_heatmap.png", width = 7, height = 4.5, units = "in", res = 600)
 pheatmap(
-  mat_top20,
-  annotation_col = anno_col,
-  show_rownames = TRUE,
-  show_colnames = FALSE,
-  fontsize_row = 8,
-  main = " "
+  mat_top20,                  # <- FIXED: use mat_top20 here
+  annotation_col    = anno_sex,
+  annotation_colors = sex_cols,
+  show_rownames     = TRUE,
+  show_colnames     = FALSE,
+  fontsize_row      = 6,
+  main              = " "
 )
+dev.off()
 
-# Top 20 most variable genes across all samples.
+# Top 20 most variable genes across all samples
 topVarGenes <- head(order(matrixStats::rowVars(assay(vsd)), decreasing = TRUE), 20)
-mat_var <- assay(vsd)[ topVarGenes, ]
+mat_var <- assay(vsd)[topVarGenes, ]
 mat_var <- mat_var - rowMeans(mat_var)
-anno_var <- as.data.frame(colData(vsd)[, "sex", drop = FALSE])
 
+row_syms_var <- sub(".*\\|", "", rownames(mat_var))
+rownames(mat_var) <- make.unique(row_syms_var)
+
+png("Fig_QC_Top20_variable_genes_heatmap.png", width = 7, height = 4.5, units = "in", res = 600)
 pheatmap(
   mat_var,
-  annotation_col = anno_var,
-  show_rownames = TRUE,
-  show_colnames = FALSE,
-  fontsize_row = 7,
-  main = " "
+  annotation_col    = anno_sex,
+  annotation_colors = sex_cols,
+  show_rownames     = TRUE,
+  show_colnames     = FALSE,
+  fontsize_row      = 6,
+  main              = " "
 )
+dev.off()
 
+#A few notes:
+##### Hypothesis-centered Figures
 # GH–IGF / insulin / downstream signalling gene set
 # Based on canonical GH–IGF and JAK–STAT / PI3K–AKT–mTOR / MAPK pathway
 # schematics and reviews, for example:
-# Le, T. K. C., Dao, X. D., Nguyen, D. V., Luu, D. H., Bui, T. M. H., Le, T. H., Nguyen, H. T., Le, T. N., Hosaka, T., & Nguyen, T. T. T. (2023). Insulin signaling and its application. Frontiers in endocrinology, 14, 1226655. https://doi.org/10.3389/fendo.2023.1226655
+# - GH–IGF axis and receptor signalling:
+# PMID: 23443822 (Le Roith & Yakar, Endocrinology, IGF system overview)[web:309]
+# PMID: 25757452 (Waters & Brooks, Growth hormone receptor signalling)[web:309]
+# - JAK–STAT and SOCS negative feedback:
+# PMID: 19112499 (Starr & Hilton, JAK–STAT signalling and SOCS proteins)[web:323]
+# - PI3K–AKT–mTOR and FOXO:
+# PMID: 17011494 (Manning & Cantley, AKT/PKB signalling)[web:314]
+# PMID: 12150915 (Brunet et al., FOXO transcription factors)[web:314]
+# - RAS–RAF–MEK–ERK MAPK cascade:
+# PMID: 17496910 (Wellbrock et al., RAF proteins and ERK signalling)[web:323]
+# The rest of the references are in the other script titled "IGF–insulin_pathway_fgsea_analysis"
 
+# GH–IGF / insulin / downstream signalling gene set
 gh_symbols <- c(
   "GH1","GH2","GHR","GHRHR","GHRH",
   "IGF1","IGF2","IGF1R","IGF2R",
@@ -168,16 +200,81 @@ gh_symbols <- c(
   "HRAS","KRAS","NRAS","RAF1","BRAF",
   "MAP2K1","MAP2K2","MAPK1","MAPK3","ELK1","JUN","FOS",
   "SOCS1","SOCS2","SOCS3","CISH","PTPN1","PTPN2",
-  "MAS1","SLC22A1","SLC22A2","SLC22A3","ACAT2","RPS6KA2"
+  "MAS1","SLC22A1","SLC22A2","SLC22A3","ACAT2","RPS6KA2", "JAK1","JAK2","JAK3","MAPK1","MAPK3","MTOR","STAT3","TYK2",
+  "TYK2",        
+  "STAT1","STAT2",
+  "STAT4","STAT5A","STAT5B","STAT6",   # STAT transcription factors
+  "IL6","IL6R","IL10RA","IL10RB",      # key IL cytokines/receptors
+  "IL2","IL2RA","IL2RB","IL2RG",       # IL‑2 receptor complex
+  "OSMR","LIFR","IL7R",                # gp130/IL‑6 family receptors
+  "SOCS1","SOCS2","SOCS3", "IGF1","IGF1R",
+  "IRS1","IRS2",
+  # Ras–MAPK arm
+  "SHC1","GRB2","SOS1",
+  "HRAS","RAF1","MAP2K1","MAPK3","MAPK8",
+  "ELK1","FOS","JUN","SRF",
+  # PI3K–AKT survival arm
+  "PIK3CA","PIK3R1","PDPK1","AKT1","BAD",
+  # modulation / GAP/PTP
+  "PTPN11","RASA1", "IGF1","IGF2","IGF1R","IGF2R","INSR",
+  "BAD","GRB2","HRAS","IGF1","IGF1R","IRS1","MAPK3",
+  "PIK3CA","PIK3R1","RAF1","SHC1","SOS1","YWHAH",
+  "GRB2","HRAS","INS","INSR","IRS1","PIK3CA","PIK3R1",
+  "PTPN11","SHC1","SLC2A14","SOS1",
+  "CISH","GH1","GHR","GRB2","HNF1A","INS","INSR","IRS1","JAK2",
+  "PIK3CA","PIK3R1","PLCG1","PRKCA","PRKCB","PTPN6","RPS6KA1",
+  "SHC1","SLC2A14","SOS1","SRF", "CAV1","CISH","DAB1","HGS","LEPROT","NEUROD1","NF2",
+  "PPP2CA","PPP2R1A","PTPN2",
+  "SOCS1","SOCS2","SOCS3","SOCS4","SOCS5","SOCS6","SOCS7",
+  "CALM1","CAMK2A","CCL5","CENPJ","CRLF3",
+  "CSH1","CSH2","CSHL1",
+  "CYP1B1","EP300","ERBB4",
+  "F2","F2R",
+  "GH1","GH2","GHR",
+  "HES1","HES5",
+  "IFNL1","IL10",
+  # PI3K catalytic subunits
+  "PIK3CA","PIK3CB","PIK3CD","PIK3CG",
+  # PI3K regulatory subunits
+  "PIK3R1","PIK3R2","PIK3R3","PIK3R5",
+  # AKT isoforms
+  "AKT1","AKT2","AKT3",
+  # PDK1 / mTOR nodes
+  "PDPK1","MTOR","RPS6KB1","RPS6KB2","EIF4EBP1",
+  # canonical downstream substrates / integrators
+  "GSK3B","FOXO1","FOXO3","TSC1","TSC2","RHEB",
+  # RTK adaptor linking to PI3K
+  "GAB1","FRS2",
+  "AKT1","AKT2","AKT3",
+  "PHLPP1","PHLPP2","PTEN",
+  "THEM4","TRIB3", "INPP4B","TSC1","TSC2",
+  "AGO1","AGO2","AGO3","AGO4",
+  "AKT1","AKT1S1","AKT2","AKT3",
+  "BAD","BTC","CASP9",
+  "CD19","CD28","CD80","CD86",
+  "CDKN1A","CDKN1B","CHUK","CREB1",
+  "EGF","EGFR","ERBB2","ERBB3","ERBB4","EREG",
+  "FGF1","FGF2","FGF3","FGF4","FGF5","FGF6","FGF7","FGF8","FGF9",
+  "FGF10","FGF16","FGF17","FGF18","FGF19","FGF20","FGF22","FGF23",
+  "FGFR1","FGFR2","FGFR3","FGFR4",
+  "FOXO1","FOXO3","FOXO4","FRS2",
+  "HRAS","KRAS","NRAS",
+  "RAF1","BRAF",
+  "MAP2K1","MAP2K2",
+  "MAPK1","MAPK3",
+  "FOS","JUN","ELK1","SRF","MYC"
+  
 )
 
+# Print total unique GH/IGF hypothesis genes once
+cat("Total unique GH/IGF hypothesis genes:", length(unique(gh_symbols)), "\n")
+
 ### Map DESeq2 results to GH/IGF pathway genes -------------
-# Add gene_id and symbol columns to DESeq2 table.
 res_df <- as.data.frame(res)
 res_df$gene_id <- rownames(res_df)
 res_df$symbol <- sub(".*\\|", "", res_df$gene_id)
 
-# Subset to GH/IGF pathway list.
+
 gh_res <- res_df[ res_df$symbol %in% gh_symbols, ]
 gh_res <- gh_res[order(gh_res$padj), ]
 
@@ -186,21 +283,23 @@ write.csv(gh_res,
           file = "GH_IGF_hypothesis_genes_results.csv",
           row.names = FALSE)
 
-### Exploratory GH/IGF subsets ---------------
-# FDR cutoffs for GH/IGF hypothesis set.
-g050 <- subset(gh_res, !is.na(padj) & padj < 0.05)
+
+# How many of those GH/IGF genes appear in  DESeq2 results
+gh_in_data <- intersect(unique(gh_symbols), res_df$symbol)
+cat("GH/IGF genes present in DESeq2 results:",
+    length(gh_in_data), "\n")
+
+### Exploratory GH/IGF subsets 
+
+gh050 <- subset(gh_res, !is.na(padj) & padj < 0.05)
 gh10 <- subset(gh_res, !is.na(padj) & padj < 0.10)
 gh20 <- subset(gh_res, !is.na(padj) & padj < 0.20)
 
-write.csv(gh10, file = "GH_IGF_genes_FDR0.05.csv", row.names = FALSE)
+write.csv(gh050, file = "GH_IGF_genes_FDR0.05.csv", row.names = FALSE)
 write.csv(gh10, file = "GH_IGF_genes_FDR0.10.csv", row.names = FALSE)
 write.csv(gh20, file = "GH_IGF_genes_FDR0.20.csv", row.names = FALSE)
 
-### Sample-to-sample distances + MA plot + PCA -----------
-# QC Panel:
-#   Fig_QC_SampleDistances: Euclidean distances between samples (rlog scale).
-#   Fig_QC_MAplot: MA plot 
-#   Fig_QC_PCA_sex: PCA of rlog-transformed counts colored by sex.
+### Sample-to-sample distances + MA plot + PCA 
 
 sampleDists <- dist(t(assay(rld)))
 sampleDistMatrix <- as.matrix(sampleDists)
@@ -208,7 +307,6 @@ rownames(sampleDistMatrix) <- paste(rld$sex)
 colnames(sampleDistMatrix) <- NULL
 colors <- colorRampPalette(rev(brewer.pal(9, "Blues")))(255)
 
-# Distance heatmap PNG (QC 1)
 png("Fig_QC_SampleDistances.png", width = 7, height = 6, units = "in", res = 600)
 sampleDistPlot <- pheatmap(sampleDistMatrix,
                            clustering_distance_rows = sampleDists,
@@ -218,26 +316,21 @@ sampleDistPlot <- pheatmap(sampleDistMatrix,
 print(sampleDistPlot)
 dev.off()
 
-# MA plot PNG (QC 2)
 png("Fig_QC_MAplot.png", width = 7, height = 6, units = "in", res = 600)
 plotMA(res, main = "DESeq2: male vs female", ylim = c(-8,8))
 dev.off()
 
-# PCA PNG (QC 3)
 png("Fig_QC_PCA_sex.png", width = 7, height = 6, units = "in", res = 600)
 print(plotPCA(rld, intgroup = "sex"))
 dev.off()
 
-### =========================================================
-### Hypothesis-targeted FIGURES
-###Fig 1: MA, PCA, sample-to-sample distances
-### Fig2: Key GH/IGF genes (boxplots)
-### Fig3A: GH/IGF FDR < 0.05
-### Fig3B: GH/IGF FDR < 0.20
-### =========================================================
+### Hypothesis-targeted figures
+### Fig 1: QC
+### Fig 2: Key GH/IGF genes
+### Fig 3A: GH/IGF FDR < 0.05
+### Fig 3B: GH/IGF FDR < 0.10
+### GH/IGF FDR < 0.20
 
-## Fig3 ---------------------
-# Heatmap of GH/IGF genes with FDR < 0.05 (most stringent set).
 
 gh05 <- subset(gh_res, !is.na(padj) & padj < 0.05)
 gh05_ids <- gh05$gene_id[gh05$gene_id %in% rownames(vsd)]
@@ -267,7 +360,7 @@ if (length(gh05_ids) > 1) {
   message("No GH/IGF genes with padj < 0.05.")
 }
 
-## Fig3B ---------------------
+
 # Heatmap of GH/IGF genes with FDR < 0.20 (exploratory set).
 
 gh20_ids <- gh20$gene_id[gh20$gene_id %in% rownames(vsd)]
@@ -290,15 +383,13 @@ if (length(gh20_ids) > 1) {
     annotation_colors = sex_cols,
     show_rownames = TRUE,
     show_colnames = TRUE,
-    fontsize_row = 8,
+    fontsize_row = 5,
     main = " "
   )
   dev.off()
 }
 
-## ---------------------
-# Heatmap of GH/IGF genes with FDR < 0.10 (middle-set).
-####JUST FOR FUN!####
+# Heatmap of GH/IGF genes with FDR < 0.10 
 
 gh10_ids <- gh10$gene_id[gh10$gene_id %in% rownames(vsd)]
 
@@ -320,15 +411,14 @@ if (length(gh10_ids) > 1) {
     annotation_colors = sex_cols,
     show_rownames = TRUE,
     show_colnames = TRUE,
-    fontsize_row = 8,
+    fontsize_row = 6,
     main = " "
   )
   dev.off()
 }
 
 
-## Fig2: Box/strip plots for key GH/IGF genes ----
-# Normalized-count boxplots for selected GH/IGF genes (per sex).
+## Fig2: Box/strip plots for key GH/IGF gene
 
 key_genes2 <- c("FOS", "IGF1", "IGF2", "GHR", "IGF1R", "STAT5B", "SOCS2")
 
@@ -354,7 +444,7 @@ if (nrow(plot_genes_df2) > 0) {
     facet_wrap(~symbol, scales = "free_y") +
     theme_bw(base_size = 12) +
     labs(
-      title = "Key GH/IGF genes including FOS",
+      title = " ",
       x = "Sex",
       y = "Normalized counts"
     ) +
@@ -369,7 +459,7 @@ if (nrow(plot_genes_df2) > 0) {
   dev.off()
 }
 
-### ---- Save key DESeq2 outputs to working directory -------
+### Save key DESeq2 outputs to working directory 
 # Export key DESeq2 tables for downstream analyses and sharing.
 
 write.csv(as.data.frame(resOrdered),
@@ -478,3 +568,45 @@ write.csv(
   file = "ManuscriptReady_DEG_summary_padj.csv",
   row.names = FALSE
 )
+
+
+#### Manuscript-ready DEG summary *restricted to GH/IGF hypothesis genes*
+
+# Subset the full DESeq2 result to GH/IGF symbols only
+res_df <- as.data.frame(res)
+res_df$gene_id <- rownames(res_df)
+res_df$symbol  <- sub(".*\\|", "", res_df$gene_id)
+
+res_gh <- res_df[res_df$symbol %in% gh_symbols, ]
+
+# Helper to count up- and down-regulated genes at a given padj cutoff
+deg_summary_fun_gh <- function(res_obj, padj_cutoff) {
+  sig <- res_obj[which(!is.na(res_obj$padj) & res_obj$padj < padj_cutoff), ]
+  up   <- sum(sig$log2FoldChange > 0, na.rm = TRUE)
+  down <- sum(sig$log2FoldChange < 0, na.rm = TRUE)
+  data.frame(
+    padj_threshold        = padj_cutoff,
+    n_significant_genes   = nrow(sig),
+    n_upregulated_genes   = up,
+    n_downregulated_genes = down
+  )
+}
+
+# Build summary for padj values
+deg_gh_005 <- deg_summary_fun_gh(res_gh, 0.05)
+deg_gh_010 <- deg_summary_fun_gh(res_gh, 0.10)
+deg_gh_020 <- deg_summary_fun_gh(res_gh, 0.20)
+
+gh_manuscript_deg_table <- rbind(deg_gh_005, deg_gh_010, deg_gh_020)
+row.names(gh_manuscript_deg_table) <- NULL
+gh_manuscript_deg_table
+
+write.csv(
+  gh_manuscript_deg_table,
+  file = "ManuscriptReady_GH_IGF_DEG_summary_padj.csv",
+  row.names = FALSE
+)
+
+# Total unique GH/IGF genes in your hypothesis list
+cat("Total unique GH/IGF hypothesis genes:",
+    length(unique(gh_symbols)), "\n")
