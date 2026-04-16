@@ -1,0 +1,281 @@
+#  (sex DE in beagle frontal cortex)
+# Course: Functional Genomics (BIOL 6850)
+# Author: Beverly Thomas
+#
+# Input:
+#   - DGErankName.rnk  (two-column file: gene symbol, DESeq2 Wald statistic for male vs female, female as reference)
+#
+# Output:
+#   - FigX_GH_IGF_Pathways_fgsea_barplot.png        (600 DPI NES barplot, male vs female)
+#   - FGSEA_leading_edge_GH_IGF_pathways.csv        (table of NES, padj, size, leading-edge genes)
+#
+# Overview:
+#   This script performs hypothesis-driven, preranked GSEA using fgsea on
+#   GH/IGF–insulin–JAK–STAT–PI3K pathway gene sets curated a priori from
+#   BioCarta, Gene Ontology, Reactome, and GeneRIF/Harmonizome resources with links listed above each
+#   pathway below.
+#
+#   1) Defines custom pathway gene sets for IGF1R, insulin, GH, JAK–STAT,
+#      PI3K–AKT, and RTK–RAS–MEK–ERK modules (see Supplementary Table 1).
+#   2) Reads a ranked gene list (DGErankName.rnk) based on DESeq2 Wald
+#      statistics for the male vs female contrast (females as reference).
+#   3) Runs fgsea (multilevel algorithm) with minSize = 5, maxSize = 500,
+#      and reports normalized enrichment scores (NES), p-values, padj,
+#      and gene-set sizes for all curated pathways.
+#   4) Generates a barplot of NES values, colored by enrichment direction
+#      (steelblue = male-up, salmon = female-up) for use as Figure 5.
+#   5) Extracts leading-edge genes for each pathway and writes a compact
+#      CSV table summarizing NES, padj, size, and leading-edge membership
+#      for use in the manuscript (Supplementary Table 2).
+#
+# Notes:
+#   - NES values are normalized to account for gene-set size, allowing
+#     comparison across pathways of different sizes.
+#   - No hard padj threshold is applied here; statistical significance and
+#     effect direction are instead summarized in FGSEA_leading_edge_*.csv
+#     and interpreted in a hypothesis-driven, exploratory framework.
+
+library(data.table)
+library(fgsea)
+library(ggplot2)
+
+## 1. Pathway lists -----------------------------------------------------
+
+#http://cgap.nci.nih.gov/Pathways/BioCarta/h_igf1rPathway
+#https://maayanlab.cloud/Harmonizome/dataset/GeneRIF+Biological+Term+Annotations
+igf_core <- c(
+  "IGF1","IGF1R",
+  "IRS1","IRS2",
+  # Ras–MAPK arm
+  "SHC1","GRB2","SOS1",
+  "HRAS","RAF1","MAP2K1","MAPK3","MAPK8",
+  "ELK1","FOS","JUN","SRF",
+  # PI3K–AKT survival arm
+  "PIK3CA","PIK3R1","PDPK1","AKT1","BAD",
+  # modulation / GAP/PTP
+  "PTPN11","RASA1", "IGF1","IGF2","IGF1R","IGF2R","INSR" 
+)
+
+#https://maayanlab.cloud/Harmonizome/dataset/GeneRIF+Biological+Term+Annotations
+igf1_antiapoptosis <- c(
+  "BAD","GRB2","HRAS","IGF1","IGF1R","IRS1","MAPK3",
+  "PIK3CA","PIK3R1","RAF1","SHC1","SOS1","YWHAH"
+)
+
+
+#http://cgap.nci.nih.gov/Pathways/BioCarta/h_insulinPathway
+insulin_pathway <- c(
+  "GRB2","HRAS","INS","INSR","IRS1","PIK3CA","PIK3R1",
+  "PTPN11","SHC1","SLC2A14","SOS1"
+)
+
+#http://cgap.nci.nih.gov/Pathways/BioCarta/h_ghPathway
+gh_pathway <- c(
+  "CISH","GH1","GHR","GRB2","HNF1A","INS","INSR","IRS1","JAK2",
+  "PIK3CA","PIK3R1","PLCG1","PRKCA","PRKCB","PTPN6","RPS6KA1",
+  "SHC1","SLC2A14","SOS1","SRF"
+)
+
+#http://cgap.nci.nih.gov/Pathways/BioCarta/h_stat3Pathway
+#http://amigo.geneontology.org/amigo/term/GO:0007259
+jakstat_core <- c(
+  "JAK1","JAK2","JAK3","MAPK1","MAPK3","MTOR","STAT3","TYK2",
+  "TYK2",        
+  "STAT1","STAT2",
+  "STAT4","STAT5A","STAT5B","STAT6",   # STAT transcription factors
+  "IL6","IL6R","IL10RA","IL10RB",      # key IL cytokines/receptors
+  "IL2","IL2RA","IL2RB","IL2RG",       # IL‑2 receptor complex
+  "OSMR","LIFR","IL7R",                # gp130/IL‑6 family receptors
+  "SOCS1","SOCS2","SOCS3"  
+  )
+
+  #http://amigo.geneontology.org/amigo/term/GO:0046425
+  #http://amigo.geneontology.org/amigo/term/GO:0046426
+  # JAK–STAT negative feedback / brakes
+  jakstat_negative_regulators <- c(
+    "CAV1","CISH","DAB1","HGS","LEPROT","NEUROD1","NF2",
+    "PPP2CA","PPP2R1A","PTPN2",
+    "SOCS1","SOCS2","SOCS3","SOCS4","SOCS5","SOCS6","SOCS7"
+  )
+  
+  #http://amigo.geneontology.org/amigo/term/GO_0046427
+  # JAK–STAT positive regulators / up-modulators
+  jakstat_positive_regulators <- c(
+    "CALM1","CAMK2A","CCL5","CENPJ","CRLF3",
+    "CSH1","CSH2","CSHL1",
+    "CYP1B1","EP300","ERBB4",
+    "F2","F2R",
+    "GH1","GH2","GHR",
+    "HES1","HES5",
+    "IFNL1","IL10"
+  )
+  
+  
+  #https://maayanlab.cloud/Harmonizome/dataset/GeneRIF+Biological+Term+Annotations
+  pi3k_akt_core <- c(
+    # PI3K catalytic subunits
+    "PIK3CA","PIK3CB","PIK3CD","PIK3CG",
+    # PI3K regulatory subunits
+    "PIK3R1","PIK3R2","PIK3R3","PIK3R5",
+    # AKT isoforms
+    "AKT1","AKT2","AKT3",
+    # PDK1 / mTOR nodes
+    "PDPK1","MTOR","RPS6KB1","RPS6KB2","EIF4EBP1",
+    # canonical downstream substrates / integrators
+    "GSK3B","FOXO1","FOXO3","TSC1","TSC2","RHEB",
+    # RTK adaptor linking to PI3K
+    "GAB1","FRS2"
+  )
+  
+  
+  #Negative regulator of the PI3K/AKT network
+  #http://www.reactome.org/PathwayBrowser/#/R-HSA-199418
+  pi3k_negative_regulator <- c(
+    "AKT1","AKT2","AKT3",
+    "PHLPP1","PHLPP2","PTEN",
+    "THEM4","TRIB3", "INPP4B","TSC1","TSC2"
+  )
+  
+  #http://www.reactome.org/PathwayBrowser/#/R-HSA-198203
+  pi3k_positive_regulator <- c(
+    "AGO1","AGO2","AGO3","AGO4",
+    "AKT1","AKT1S1","AKT2","AKT3",
+    "BAD","BTC","CASP9",
+    "CD19","CD28","CD80","CD86",
+    "CDKN1A","CDKN1B","CHUK","CREB1",
+    "EGF","EGFR","ERBB2","ERBB3","ERBB4","EREG",
+    "FGF1","FGF2","FGF3","FGF4","FGF5","FGF6","FGF7","FGF8","FGF9",
+    "FGF10","FGF16","FGF17","FGF18","FGF19","FGF20","FGF22","FGF23",
+    "FGFR1","FGFR2","FGFR3","FGFR4",
+    "FOXO1","FOXO3","FOXO4","FRS2"
+  )
+  
+  # http://www.reactome.org/PathwayBrowser/#/R-HSA-198753
+  rtk_ras_mek_erk_outcome <- c(
+    "HRAS","KRAS","NRAS",
+    "RAF1","BRAF",
+    "MAP2K1","MAP2K2",
+    "MAPK1","MAPK3",
+    "FOS","JUN","ELK1","SRF","MYC"
+  )
+  
+
+  pathways_list <- list(
+    IGF1_core                = igf_core,
+    IGF1_antiapoptosis       = igf1_antiapoptosis,
+    Insulin_pathway          = insulin_pathway,
+    GH_pathway               = gh_pathway,
+    JAK_STAT_core            = jakstat_core,
+    JAK_STAT_pos_regulators  = jakstat_positive_regulators,
+    JAK_STAT_neg_regulators  = jakstat_negative_regulators,
+    PI3K_AKT_core            = pi3k_akt_core,
+    PI3K_pos_regulators      = pi3k_positive_regulator,
+    PI3K_neg_regulators      = pi3k_negative_regulator,
+    RTK_RAS_MEK_ERK_outcome  = rtk_ras_mek_erk_outcome
+  )
+
+## 2. Read ranked gene list and build named vector ----------------------
+
+rnk <- fread("DGErankName.rnk")   # columns: Name, rank
+
+ranks <- rnk$rank
+names(ranks) <- rnk$Name
+
+# Drop NAs, remove duplicate gene names, sort decreasing
+ranks <- ranks[!is.na(ranks)]
+ranks <- ranks[!duplicated(names(ranks))]
+ranks <- sort(ranks, decreasing = TRUE)
+
+## 3. Run fgsea (multilevel; no nperm) ---------------------------------
+
+fgseaRes <- fgsea(
+  pathways = pathways_list,
+  stats    = ranks,
+  minSize  = 5,
+  maxSize  = 500
+)
+
+fgsea_df <- as.data.frame(fgseaRes)
+fgsea_df <- fgsea_df[order(fgsea_df$padj), ]
+
+## 4. Prepare data for plotting -----------------------------------------
+
+# Use all pathways (no padj filter) or add a filter if you want
+plot_df <- fgsea_df
+
+plot_df$pathway_pretty <- dplyr::recode(
+  plot_df$pathway,
+  "IGF1_core"               = "IGF proximal signaling",
+  "IGF1_antiapoptosis"      = "IGF anti-apoptotic module",
+  "Insulin_pathway"         = "Core insulin module",
+  "GH_pathway"              = "GH proximal signaling",
+  "JAK_STAT_core"           = "Core JAK–STAT cascade",
+  "JAK_STAT_pos_regulators" = "JAK–STAT positive modulators",
+  "JAK_STAT_neg_regulators" = "JAK–STAT negative regulators",
+  "PI3K_AKT_core"           = "PI3K–AKT core cascade",
+  "PI3K_pos_regulators"     = "PI3K positive modulators",
+  "PI3K_neg_regulators"     = "PI3K–AKT negative regulators",
+  "RTK_RAS_MEK_ERK_outcome" = "RTK–RAS–MEK–ERK outcome"
+)
+
+# Use the pretty names for ordering and plotting
+plot_df$pathway_pretty <- factor(
+  plot_df$pathway_pretty,
+  levels = plot_df$pathway_pretty[order(plot_df$NES)]
+)
+
+plot_df$pathway <- factor(
+  plot_df$pathway,
+  levels = plot_df$pathway[order(plot_df$NES)]
+)
+
+# Direction: NES > 0 (enriched in male-up genes) vs NES < 0 (female-up)
+plot_df$direction <- ifelse(plot_df$NES > 0, "male_up", "female_up")
+
+## 5. NES bar plot with sex-consistent colors ---------------------------
+
+png("FigX_GH_IGF_Pathways_fgsea_barplot.png",
+    width = 7, height = 5, units = "in", res = 600)
+
+ggplot(plot_df,
+       aes(x = pathway_pretty, y = NES, fill = direction)) +
+  geom_col() +
+  coord_flip() +
+  scale_fill_manual(values = c(
+    male_up   = "steelblue",  # higher in males
+    female_up = "salmon"      # higher in females
+  )) +
+  theme_bw(base_size = 11) +
+  labs(
+    title = "Enrichment of GH/IGF–insulin–JAK–STAT–PI3K gene sets",
+    x = "Pathway",
+    y = "Normalized Enrichment Score (NES)",
+    fill = "Direction"
+  )
+
+dev.off()
+
+## 3b. Extract leading-edge genes for interpretation -------------------
+
+# Keep a compact list of leading-edge genes per pathway
+leading_edge_list <- lapply(
+  setNames(seq_len(nrow(fgsea_df)), fgsea_df$pathway),
+  function(i) unlist(fgsea_df$leadingEdge[i])
+)
+
+# Optionally write a simple table for Supplement
+leading_edge_table <- data.frame(
+  pathway      = fgsea_df$pathway,
+  NES          = fgsea_df$NES,
+  padj         = fgsea_df$padj,
+  size         = fgsea_df$size,
+  n_leading    = vapply(leading_edge_list, length, integer(1)),
+  leading_edge = vapply(leading_edge_list,
+                        function(x) paste(x, collapse = ";"),
+                        character(1)),
+  row.names = NULL
+)
+
+write.csv(leading_edge_table,
+          file = "FGSEA_leading_edge_GH_IGF_pathways.csv",
+          row.names = FALSE)
